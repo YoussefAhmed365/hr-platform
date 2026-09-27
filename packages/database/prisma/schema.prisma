@@ -1,0 +1,247 @@
+// packages/database/prisma/schema.prisma
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum SystemRole {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  BRANCH_MANAGER
+  EMPLOYEE
+}
+
+enum CompanyStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+}
+
+// ------------------------------------------------------
+// 1. الباقات والشركات والفروع (Multi-Tenancy Core)
+// ------------------------------------------------------
+
+model SaaSPlan {
+  id                    String    @id @default(cuid())
+  name                  String    @unique
+  hasBranches           Boolean   @default(false)
+  maxBranches           Int       @default(1)
+  maxEmployeesPerBranch Int?
+  maxTotalEmployees     Int
+  companies             Company[]
+  createdAt             DateTime  @default(now())
+}
+
+model Company {
+  id                     String        @id @default(cuid())
+  name                   String
+  slug                   String        @unique
+  status                 CompanyStatus @default(TRIAL)
+  planId                 String
+  plan                   SaaSPlan      @relation(fields: [planId], references: [id])
+
+  // مؤشرات مراقبة النشاط للـ Super Admin
+  lastPayrollActivity    DateTime?
+  lastKpiActivity        DateTime?
+  lastPersonnelActivity  DateTime?
+  lastAttendanceActivity DateTime?
+
+  branches               Branch[]
+  users                  User[]
+  employees              Employee[]
+  invitations            UserInvitation[]
+  auditLogs              AuditLog[]
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+}
+
+model Branch {
+  id          String           @id @default(cuid())
+  name        String
+  isDefault   Boolean          @default(false)
+  companyId   String
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  managers    User[]
+  employees   Employee[]
+  invitations UserInvitation[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([companyId])
+}
+
+// ------------------------------------------------------
+// 2. المستخدمون والجلسات (متوافق مع Better Auth + RBAC)
+// ------------------------------------------------------
+
+model User {
+  id               String     @id @default(cuid())
+  name             String
+  email            String     @unique
+  emailVerified    Boolean    @default(false)
+  image            String?
+  role             SystemRole @default(COMPANY_ADMIN)
+  isActive         Boolean    @default(true)
+  twoFactorEnabled Boolean    @default(false)
+
+  // عزل المستأجرين والفرع
+  companyId        String?
+  company          Company?   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId         String?
+  branch           Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  employeeProfile  Employee?
+  sessions         Session[]
+  accounts         Account[]
+  auditLogs        AuditLog[]
+
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@index([companyId, role])
+  @@index([branchId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?   // يُخزن فيه الـ Hash الخاص بـ Better Auth
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+}
+
+model UserInvitation {
+  id        String           @id @default(cuid())
+  email     String
+  role      SystemRole
+  token     String           @unique
+  status    InvitationStatus @default(PENDING)
+  expiresAt DateTime
+
+  companyId String
+  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId  String?
+  branch    Branch?          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime         @default(now())
+
+  @@index([companyId])
+  @@index([token])
+}
+
+// ------------------------------------------------------
+// 3. بيانات الموظفين (Personnel Master Data)
+// ------------------------------------------------------
+
+model Employee {
+  id                  String     @id @default(cuid())
+  fullName            String
+  email               String?
+  phone               String?
+  nationalIdEncrypted String     // الرقم القومي مشفر بالكامل
+  gender              String?
+  maritalStatus       String?
+  religion            String?
+  dateOfBirth         DateTime?
+  
+  jobTitle            String
+  department          String?
+  contractType        String     @default("PERMANENT") // PERMANENT, TEMPORARY, PROBATION
+  status              String     @default("ACTIVE")    // ACTIVE, ON_LEAVE, RESIGNED, TERMINATED
+  baseSalary          Decimal    @db.Decimal(19, 4)
+  hireDate            DateTime
+
+  // مفاتيح الربط الثلاثي الإجبارية
+  companyId           String
+  company             Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId            String
+  branch              Branch     @relation(fields: [branchId], references: [id])
+
+  // علاقة المدير المباشر الذاتية (Self-referencing)
+  managerId           String?
+  manager             Employee?  @relation("ManagerHierarchy", fields: [managerId], references: [id])
+  subordinates        Employee[] @relation("ManagerHierarchy")
+
+  // حساب الدخول (مؤجل للمرحلة الثانية)
+  userId              String?    @unique
+  user                User?      @relation(fields: [userId], references: [id])
+
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  @@index([companyId, branchId])
+  @@index([managerId])
+}
+
+// ------------------------------------------------------
+// 4. القواعد القانونية وسجل التدقيق (Compliance & Audit)
+// ------------------------------------------------------
+
+model GlobalComplianceRule {
+  id            String    @id @default(cuid())
+  category      String    // "TAX", "INSURANCE", "LABOR_LAW"
+  version       Int       @default(1)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  isLocked      Boolean   @default(false)
+  parameters    Json
+  createdAt     DateTime  @default(now())
+
+  @@unique([category, version])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  action    String
+  entity    String
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+}
