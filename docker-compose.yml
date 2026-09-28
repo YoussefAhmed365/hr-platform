@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: hr_saas_postgres
-    restart: always
+    restart: no
     environment:
       POSTGRES_USER: hr_admin
       POSTGRES_PASSWORD: hr_secret_password
@@ -15,7 +15,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: hr_saas_redis
-    restart: always
+    restart: no
     ports:
       - "6379:6379"
     volumes:
