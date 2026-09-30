@@ -1,14 +1,26 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import heroImg from './assets/hero.png'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import './App.css'
 
 function App() {
+  const { t, i18n } = useTranslation()
   const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    document.documentElement.dir = i18n.dir()
+    document.documentElement.lang = i18n.language
+  }, [i18n.language])
 
   return (
     <>
+      <div style={{ position: 'absolute', top: 16, right: 16 }}>
+        <button onClick={() => i18n.changeLanguage(i18n.language === 'en' ? 'ar' : 'en')}>
+          {i18n.language === 'en' ? 'العربية' : 'English'}
+        </button>
+      </div>
       <section id="center">
         <div className="hero">
           <img src={heroImg} className="base" width="170" height="179" alt="" />
