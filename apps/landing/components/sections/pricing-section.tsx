@@ -42,7 +42,7 @@ export function PricingSection() {
                 viewport={{ once: true, margin: '0px 0px -30% 0px', amount: 0.2 }}
                 transition={{ duration: 0.5, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
                 className={`rounded-2xl p-6 sm:p-8 flex flex-col justify-between transition-all duration-300 relative ${isPopular
-                  ? 'bg-white border-2 border-[#006c49] shadow-[0_12px_32px_-8px_rgba(0,108,73,0.14)] hover:shadow-[0_20px_40px_-10px_rgba(0,108,73,0.18)] hover:-translate-y-2'
+                  ? 'bg-white border-2 border-primary-container shadow-[0_12px_32px_-8px_rgba(0,108,73,0.14)] hover:shadow-[0_20px_40px_-10px_rgba(0,108,73,0.18)] hover:-translate-y-2'
                   : 'bg-white border border-surface-dim shadow-[0_1px_3px_0_rgba(19,27,46,0.03)] hover:border-[#006c49]/50 hover:-translate-y-1.5 hover:shadow-[0_14px_28px_-6px_rgba(19,27,46,0.07)]'
                   }`}
               >
@@ -51,9 +51,9 @@ export function PricingSection() {
                     <Badge
                       variant="lime"
                       size="sm"
-                      className="font-bold shadow-xs px-3 py-1 bg-surface-container-low/20 text-secondary border border-surface-container-low/50 gap-1.5"
+                      className="font-bold shadow-xs px-3 py-1 bg-surface-container-low text-primary-container border-2 border-primary-container gap-1.5 w-72"
                     >
-                      <IconSparkles className="w-3 h-3 text-secondary" />
+                      <IconSparkles size={24} className="text-primary-container" />
                       <span>{t.popularBadge}</span>
                     </Badge>
                   </div>

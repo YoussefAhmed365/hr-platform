@@ -51,6 +51,7 @@ export default async function RootLayout({
 		<html
 			lang={locale}
 			dir={dir}
+			data-scroll-behavior="smooth"
 			className={`${ibmPlexArabic.variable} ${plusJakartaSans.variable}`}
 			suppressHydrationWarning
 		>

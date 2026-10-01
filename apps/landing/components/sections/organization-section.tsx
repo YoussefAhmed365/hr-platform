@@ -40,7 +40,7 @@ export function OrganizationSection() {
           {/* Level 1: Root Company Node */}
           <div className="flex flex-col items-center">
             <div className="bg-white border-2 border-[#006c49] rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 max-w-md w-full text-center relative group">
-              <div className="w-10 h-10 rounded-xl bg-[#006c49] text-white mx-auto flex items-center justify-center font-bold text-base mb-2 transition-transform duration-300 group-hover:scale-105">
+              <div className="w-10 h-10 rounded-xl bg-[#006c49] text-white mx-auto flex items-center justify-center font-bold text-base mb-2 transition-transform duration-300">
                 <IconBuilding className="w-5 h-5" />
               </div>
               <h3 className="text-sm sm:text-base font-bold text-[#131b2e]">
@@ -69,7 +69,7 @@ export function OrganizationSection() {
           </div>
 
           {/* Level 2: Branches Row */}
-          <div className="relative pt-2">
+          <div className="relative pt-5">
             {/* Horizontal connecting bar on desktop */}
             <div className="hidden md:block absolute top-2 inset-s-12 inset-e-12 h-0.5 bg-surface-dim" />
 
