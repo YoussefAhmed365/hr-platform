@@ -87,7 +87,7 @@ export function LoginForm() {
           {errorCode === 'EMAIL_NOT_VERIFIED' && (
             <button
               type="button"
-              className="mt-2 text-xs text-[#006c49] hover:text-[#005236] font-medium hover:underline transition-colors"
+              className="mt-2 text-xs text-[#006c49] hover:text-on-primary-fixed-variant font-medium hover:underline transition-colors"
             >
               {t.loginResendVerification}
             </button>
@@ -122,7 +122,7 @@ export function LoginForm() {
           <div className="flex justify-end">
             <a
               href={`/${lang}/forgot-password`}
-              className="text-xs text-[#006c49] hover:text-[#005236] font-medium hover:underline transition-colors"
+              className="text-xs text-[#006c49] hover:text-on-primary-fixed-variant font-medium hover:underline transition-colors"
             >
               {t.loginForgotPassword}
             </a>
@@ -157,12 +157,12 @@ export function LoginForm() {
       </form>
 
       {/* Create company link */}
-      <div className="mt-6 pt-5 border-t border-[#bbcabf]/30 text-center">
-        <p className="text-sm text-[#3c4a42]">
+      <div className="mt-6 pt-5 border-t border-outline-variant/30 text-center">
+        <p className="text-sm text-on-surface-variant">
           {t.loginNoAccount}{' '}
           <a
             href={`/${lang}/signup`}
-            className="font-semibold text-[#006c49] hover:text-[#005236] hover:underline transition-colors"
+            className="font-semibold text-[#006c49] hover:text-on-primary-fixed-variant hover:underline transition-colors"
           >
             {t.loginCreateCompany}
           </a>

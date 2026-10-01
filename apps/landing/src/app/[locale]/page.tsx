@@ -1,21 +1,21 @@
 'use client';
 
-import { LanguageProvider } from '../../../components/sections/language-context';
-import { AnnouncementBar } from '../../../components/sections/announcement-bar';
-import { Navbar } from '../../../components/sections/navbar';
-import { Hero } from '../../../components/sections/hero';
-import { DashboardPreview } from '../../../components/sections/dashboard-preview';
-import { CredibilityStrip } from '../../../components/sections/credibility-strip';
-import { ValueProposition } from '../../../components/sections/value-proposition';
-import { ProductShowcase } from '../../../components/sections/product-showcase';
-import { OrganizationSection } from '../../../components/sections/organization-section';
-import { ExcelImportSection } from '../../../components/sections/excel-import-section';
-import { SecuritySection } from '../../../components/sections/security-section';
-import { GrowthSection } from '../../../components/sections/growth-section';
-import { PricingSection } from '../../../components/sections/pricing-section';
-import { FaqSection } from '../../../components/sections/faq-section';
-import { FinalCta } from '../../../components/sections/final-cta';
-import { Footer } from '../../../components/sections/footer';
+import { LanguageProvider } from '../../../components/home/language-context';
+import { AnnouncementBar } from '../../../components/home/announcement-bar';
+import { Navbar } from '../../../components/home/navbar';
+import { Hero } from '../../../components/home/hero';
+import { DashboardPreview } from '../../../components/home/dashboard-preview';
+import { CredibilityStrip } from '../../../components/home/credibility-strip';
+import { ValueProposition } from '../../../components/home/value-proposition';
+import { ProductShowcase } from '../../../components/home/product-showcase';
+import { OrganizationSection } from '../../../components/home/organization-section';
+import { ExcelImportSection } from '../../../components/home/excel-import-section';
+import { SecuritySection } from '../../../components/home/security-section';
+import { GrowthSection } from '../../../components/home/growth-section';
+import { PricingSection } from '../../../components/home/pricing-section';
+import { FaqSection } from '../../../components/home/faq-section';
+import { FinalCta } from '../../../components/home/final-cta';
+import { Footer } from '../../../components/home/footer';
 
 export default function LandingPage() {
 	return (

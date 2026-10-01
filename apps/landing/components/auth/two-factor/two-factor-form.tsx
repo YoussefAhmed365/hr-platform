@@ -63,7 +63,7 @@ export function TwoFactorForm() {
     try {
       const response = await authService.verifyTwoFactor(code);
       if (response.success) {
-        window.location.href = `/${lang}/dashboard`;
+        window.location.href = `${process.env.NEXT_PUBLIC_PORTAL_URL || 'http://localhost:5174'}?lang=${lang}`;
       } else {
         setError(t.twoFactorInvalidCode);
         setDigits(Array(6).fill(''));

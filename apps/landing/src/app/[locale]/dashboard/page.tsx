@@ -7,30 +7,45 @@ import {
   MockupAppShell,
   MockupMetricTile,
   MockupEmployeeRow,
-  MockupBranchItem,
-} from '../../../../components/sections/mockup-primitives';
+  type MockupNavId,
+} from '../../../../components/home/mockup-primitives';
 import { authService, type RegisteredCompany } from '../../../../lib/auth/service';
-import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
 import {
-  IconArrowLeft,
-  IconArrowRight,
-  IconCheck,
   IconRefresh,
   IconLogout,
   IconBuilding,
   IconUsers,
   IconGitBranch,
+  IconMaximize,
+  IconMinimize,
 } from '@tabler/icons-react';
 
 function DashboardContent() {
   const { lang, dir } = useAuthLanguage();
   const [activeTab, setActiveTab] = useState<'overview' | 'employees' | 'branches'>('overview');
   const [company, setCompany] = useState<RegisteredCompany | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     setCompany(authService.getRegisteredCompany());
   }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleBrowserFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => { });
+    } else {
+      document.exitFullscreen().catch(() => { });
+    }
+  };
 
   const handleRestartDemo = () => {
     authService.logout();
@@ -108,236 +123,239 @@ function DashboardContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#faf8ff] py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        
-        {/* Top Celebration MVP Banner */}
-        <div className="relative rounded-2xl bg-linear-to-r from-[#006c49] via-[#005236] to-[#003824] p-5 sm:p-6 text-white shadow-lg overflow-hidden">
-          <div className="absolute top-0 right-0 -mt-8 -mr-8 w-48 h-48 bg-[#9df7cd]/15 rounded-full blur-2xl pointer-events-none" />
-          <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/15 text-xs font-semibold text-[#9df7cd]">
-                <IconCheck className="w-3.5 h-3.5" />
-                <span>{lang === 'ar' ? 'اكتمل التدفق بنجاح (End-to-End MVP)' : 'Flow Completed Successfully'}</span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-                {lang === 'ar'
-                  ? `مرحباً بك في لوحة تحكم: ${companyName}`
-                  : `Welcome to ${companyName} Dashboard`}
-              </h1>
-              <p className="text-xs sm:text-sm text-white/80 max-w-2xl leading-relaxed">
-                {lang === 'ar'
-                  ? 'تم تسجيل الشركة وتأكيد البريد الإلكتروني وإتمام التهيئة الهيكلية بنجاح. هذه هي مساحة العمل الجاهزة للربط مع الـ Backend.'
-                  : 'Company registration, email verification, and structural onboarding are all complete. This workspace is ready for backend integration.'}
-              </p>
-            </div>
-
-            {/* Quick Demo Action Buttons */}
-            <div className="flex items-center gap-2.5 shrink-0">
-              <button
-                type="button"
-                onClick={handleRestartDemo}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors border border-white/20"
-              >
-                <IconRefresh className="w-4 h-4" />
-                <span>{lang === 'ar' ? 'إعادة تجربة التسجيل' : 'Restart Signup Flow'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-[#006c49] hover:bg-[#e6f7ef] text-xs font-bold transition-colors shadow-xs"
-              >
-                <IconLogout className="w-4 h-4" />
-                <span>{lang === 'ar' ? 'تسجيل الخروج' : 'Logout'}</span>
-              </button>
-            </div>
+    <div className="w-full h-screen min-h-screen bg-[#faf8ff] overflow-hidden flex flex-col">
+      {/* Full-Screen Mock Application Workspace Shell */}
+      <MockupAppShell
+        isFullScreen={true}
+        activeNav={activeTab === 'overview' ? 'dashboard' : activeTab === 'employees' ? 'employees' : 'branches'}
+        onNavClick={(id: MockupNavId) => {
+          if (id === 'dashboard') setActiveTab('overview');
+          else if (id === 'employees') setActiveTab('employees');
+          else if (id === 'branches') setActiveTab('branches');
+        }}
+        companyName={companyName}
+        showWatermark={false}
+        user={{
+          name: company?.fullName || (lang === 'ar' ? 'أحمد محمود العوضي' : 'Ahmed Mahmoud'),
+          role: lang === 'ar' ? 'مدير المنشأة' : 'Company Administrator',
+          avatarSeed: (company?.fullName ? company.fullName.slice(0, 2) : (lang === 'ar' ? 'أم' : 'AM')),
+        }}
+        actions={
+          <div className="flex items-center gap-1 sm:gap-2">
+            <button
+              type="button"
+              onClick={toggleBrowserFullscreen}
+              title={isFullscreen ? (lang === 'ar' ? 'إنهاء ملء الشاشة' : 'Exit Fullscreen') : (lang === 'ar' ? 'ملء الشاشة' : 'Fullscreen')}
+              className="p-1.5 text-outline hover:text-[#131b2e] hover:bg-surface-container-low rounded-lg transition-colors flex items-center justify-center cursor-pointer"
+            >
+              {isFullscreen ? <IconMinimize className="w-4 h-4" /> : <IconMaximize className="w-4 h-4" />}
+            </button>
+            <button
+              type="button"
+              onClick={handleRestartDemo}
+              title={lang === 'ar' ? 'إعادة ضبط بيانات العرض' : 'Restart Demo'}
+              className="px-2.5 py-1 text-xs font-medium text-outline hover:text-[#006c49] hover:bg-[#e6f7ef] rounded-lg transition-colors flex items-center gap-1.5 border border-surface-dim cursor-pointer"
+            >
+              <IconRefresh className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{lang === 'ar' ? 'إعادة الديمو' : 'Reset Demo'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              title={lang === 'ar' ? 'تسجيل الخروج' : 'Logout'}
+              className="px-2.5 py-1 text-xs font-medium text-outline hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5 border border-surface-dim cursor-pointer"
+            >
+              <IconLogout className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{lang === 'ar' ? 'خروج' : 'Logout'}</span>
+            </button>
           </div>
+        }
+      >
+        <div className="max-w-7xl mx-auto space-y-6 pb-12">
+          {/* Navigation Tabs */}
+          <div className="flex items-center gap-2 border-b border-surface-dim pb-3">
+            <button
+              type="button"
+              onClick={() => setActiveTab('overview')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${activeTab === 'overview'
+                  ? 'bg-[#006c49] text-white shadow-xs'
+                  : 'text-on-surface-variant hover:bg-[#e6f7ef] hover:text-[#006c49]'
+                }`}
+            >
+              <IconBuilding className="w-3.5 h-3.5" />
+              <span>{lang === 'ar' ? 'نظرة عامة' : 'Overview'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('employees')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${activeTab === 'employees'
+                  ? 'bg-[#006c49] text-white shadow-xs'
+                  : 'text-on-surface-variant hover:bg-[#e6f7ef] hover:text-[#006c49]'
+                }`}
+            >
+              <IconUsers className="w-3.5 h-3.5" />
+              <span>{lang === 'ar' ? 'سجل الموظفين' : 'Employees'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('branches')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${activeTab === 'branches'
+                  ? 'bg-[#006c49] text-white shadow-xs'
+                  : 'text-on-surface-variant hover:bg-[#e6f7ef] hover:text-[#006c49]'
+                }`}
+            >
+              <IconGitBranch className="w-3.5 h-3.5" />
+              <span>{lang === 'ar' ? 'الفروع التشغيلية' : 'Branches'}</span>
+            </button>
+          </div>
+
+          {/* Tab 1: Overview */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* Metric Tiles */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+                {mockMetrics.map((m) => (
+                  <MockupMetricTile
+                    key={m.id}
+                    label={m.label}
+                    value={m.value}
+                    subtext={m.subtext}
+                    badgeText={m.badgeText}
+                    variant={m.variant}
+                  />
+                ))}
+              </div>
+
+              {/* Quick Info Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+                {/* Setup Summary Card */}
+                <div className="p-4 sm:p-5 rounded-xl border border-surface-dim bg-white space-y-3.5 shadow-2xs">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-outline">
+                    {lang === 'ar' ? 'تفاصيل المنشأة المسجلة' : 'Registered Organization Details'}
+                  </h3>
+                  <div className="space-y-2.5 text-xs">
+                    <div className="flex justify-between py-1.5 border-b border-surface-container-low">
+                      <span className="text-on-surface-variant">{lang === 'ar' ? 'اسم المنشأة' : 'Company Name'}:</span>
+                      <span className="font-semibold text-[#131b2e]">{companyName}</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 border-b border-surface-container-low">
+                      <span className="text-on-surface-variant">{lang === 'ar' ? 'مدير الحساب' : 'Admin Name'}:</span>
+                      <span className="font-semibold text-[#131b2e]">{company?.fullName || (lang === 'ar' ? 'أحمد محمود' : 'Ahmed Mahmoud')}</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 border-b border-surface-container-low">
+                      <span className="text-on-surface-variant">{lang === 'ar' ? 'البريد الإلكتروني' : 'Admin Email'}:</span>
+                      <span dir="ltr" className="font-semibold text-[#006c49]">{company?.email || 'admin@company.com'}</span>
+                    </div>
+                    <div className="flex justify-between py-1.5">
+                      <span className="text-on-surface-variant">{lang === 'ar' ? 'الهيكل الإداري' : 'Company Structure'}:</span>
+                      <span className="font-semibold text-[#131b2e]">
+                        {company?.structure === 'single'
+                          ? (lang === 'ar' ? 'مقر واحد فقط' : 'Single Location')
+                          : (lang === 'ar' ? `فروع متعددة (${branchesList.length})` : `Multi-Branch (${branchesList.length})`)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Operational Readiness Card */}
+                <div className="p-4 sm:p-5 rounded-xl border border-surface-dim bg-white space-y-3.5 shadow-2xs">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-outline">
+                    {lang === 'ar' ? 'حالة التفعيل والجاهزية' : 'Activation Status'}
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2.5 text-xs text-[#131b2e]">
+                      <span className="w-5 h-5 rounded-full bg-[#e6f7ef] text-[#006c49] flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                      <span>{lang === 'ar' ? 'تم إنشاء حساب المسؤول بنجاح' : 'Admin account created successfully'}</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-xs text-[#131b2e]">
+                      <span className="w-5 h-5 rounded-full bg-[#e6f7ef] text-[#006c49] flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                      <span>{lang === 'ar' ? 'تم تأكيد البريد الإلكتروني رسمياً' : 'Official email verified'}</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-xs text-[#131b2e]">
+                      <span className="w-5 h-5 rounded-full bg-[#e6f7ef] text-[#006c49] flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                      <span>{lang === 'ar' ? 'تم اعتماد الهيكل التنظيمي والفروع' : 'Structure and branches initialized'}</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-xs text-[#131b2e]">
+                      <span className="w-5 h-5 rounded-full bg-[#f4fce3] text-[#4d7c0f] flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                      <span>{lang === 'ar' ? 'المنظومة بانتظار اتصال واجهة برمجة التطبيقات (API)' : 'Ready for API backend integration'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 2: Employees */}
+          {activeTab === 'employees' && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-[#131b2e]">
+                  {lang === 'ar' ? 'قائمة أعضاء الفريق والمشرفين' : 'Team Members & Staff'}
+                </h3>
+                <Badge variant="emerald" size="sm">
+                  {mockEmployees.length} {lang === 'ar' ? 'أعضاء' : 'Members'}
+                </Badge>
+              </div>
+              <div className="bg-white rounded-xl border border-surface-dim overflow-hidden shadow-2xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-start">
+                    <thead>
+                      <tr className="bg-surface-container-low/60 border-b border-surface-dim text-outline text-[11px] font-semibold">
+                        <th className="py-2.5 px-3 text-start">{lang === 'ar' ? 'الموظف' : 'Employee'}</th>
+                        <th className="py-2.5 px-3 text-start hidden sm:table-cell">{lang === 'ar' ? 'الدور الوظيفي' : 'Role'}</th>
+                        <th className="py-2.5 px-3 text-start hidden md:table-cell">{lang === 'ar' ? 'الفرع' : 'Branch'}</th>
+                        <th className="py-2.5 px-3 text-start">{lang === 'ar' ? 'الحالة' : 'Status'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mockEmployees.map((emp) => (
+                        <MockupEmployeeRow key={emp.id} employee={emp} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 3: Branches */}
+          {activeTab === 'branches' && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-[#131b2e]">
+                  {lang === 'ar' ? 'الفروع والمقرات التابعة' : 'Branches & Locations'}
+                </h3>
+                <Badge variant="emerald" size="sm">
+                  {branchesList.length} {lang === 'ar' ? 'فروع' : 'Branches'}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {branchesList.map((branchName, idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-xl border border-surface-dim bg-white flex items-center justify-between gap-3 shadow-2xs hover:border-outline-variant transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-[#e6f7ef] text-[#006c49] flex items-center justify-center font-bold text-xs">
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#131b2e]">{branchName}</h4>
+                        <p className="text-[11px] text-outline">
+                          {lang === 'ar' ? 'فرع تشغيلي نشط' : 'Active operational branch'}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="emerald" size="sm">
+                      {lang === 'ar' ? 'نشط' : 'Active'}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Mock Application Workspace Shell */}
-        <MockupAppShell
-          activeNav={activeTab === 'overview' ? 'dashboard' : activeTab === 'employees' ? 'employees' : 'branches'}
-          companyName={companyName}
-          showWatermark={false}
-        >
-          <div className="space-y-6">
-            
-            {/* Navigation Tabs */}
-            <div className="flex items-center gap-2 border-b border-surface-dim pb-3">
-              <button
-                type="button"
-                onClick={() => setActiveTab('overview')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'overview'
-                    ? 'bg-[#006c49] text-white shadow-xs'
-                    : 'text-[#3c4a42] hover:bg-[#e6f7ef] hover:text-[#006c49]'
-                }`}
-              >
-                <IconBuilding className="w-3.5 h-3.5" />
-                <span>{lang === 'ar' ? 'نظرة عامة' : 'Overview'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('employees')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'employees'
-                    ? 'bg-[#006c49] text-white shadow-xs'
-                    : 'text-[#3c4a42] hover:bg-[#e6f7ef] hover:text-[#006c49]'
-                }`}
-              >
-                <IconUsers className="w-3.5 h-3.5" />
-                <span>{lang === 'ar' ? 'سجل الموظفين' : 'Employees'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('branches')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'branches'
-                    ? 'bg-[#006c49] text-white shadow-xs'
-                    : 'text-[#3c4a42] hover:bg-[#e6f7ef] hover:text-[#006c49]'
-                }`}
-              >
-                <IconGitBranch className="w-3.5 h-3.5" />
-                <span>{lang === 'ar' ? 'الفروع التشغيلية' : 'Branches'}</span>
-              </button>
-            </div>
-
-            {/* Tab 1: Overview */}
-            {activeTab === 'overview' && (
-              <div className="space-y-6 animate-fadeIn">
-                {/* Metric Tiles */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                  {mockMetrics.map((m) => (
-                    <MockupMetricTile
-                      key={m.id}
-                      label={m.label}
-                      value={m.value}
-                      subtext={m.subtext}
-                      badgeText={m.badgeText}
-                      variant={m.variant}
-                    />
-                  ))}
-                </div>
-
-                {/* Quick Info Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Setup Summary Card */}
-                  <div className="p-4 rounded-xl border border-surface-dim bg-white space-y-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-outline">
-                      {lang === 'ar' ? 'تفاصيل المنشأة المسجلة' : 'Registered Organization Details'}
-                    </h3>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between py-1 border-b border-surface-container-low">
-                        <span className="text-[#3c4a42]">{lang === 'ar' ? 'اسم المنشأة' : 'Company Name'}:</span>
-                        <span className="font-semibold text-[#131b2e]">{companyName}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-surface-container-low">
-                        <span className="text-[#3c4a42]">{lang === 'ar' ? 'مدير الحساب' : 'Admin Name'}:</span>
-                        <span className="font-semibold text-[#131b2e]">{company?.fullName || 'أحمد محمود'}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-surface-container-low">
-                        <span className="text-[#3c4a42]">{lang === 'ar' ? 'البريد الإلكتروني' : 'Admin Email'}:</span>
-                        <span dir="ltr" className="font-semibold text-[#006c49]">{company?.email || 'admin@company.com'}</span>
-                      </div>
-                      <div className="flex justify-between py-1">
-                        <span className="text-[#3c4a42]">{lang === 'ar' ? 'الهيكل الإداري' : 'Company Structure'}:</span>
-                        <span className="font-semibold text-[#131b2e]">
-                          {company?.structure === 'single'
-                            ? (lang === 'ar' ? 'مقر واحد فقط' : 'Single Location')
-                            : (lang === 'ar' ? `فروع متعددة (${branchesList.length})` : `Multi-Branch (${branchesList.length})`)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Operational Readiness Card */}
-                  <div className="p-4 rounded-xl border border-surface-dim bg-white space-y-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-outline">
-                      {lang === 'ar' ? 'حالة التفعيل والجاهزية' : 'Activation Status'}
-                    </h3>
-                    <div className="space-y-2.5">
-                      <div className="flex items-center gap-2 text-xs text-[#131b2e]">
-                        <span className="w-4 h-4 rounded-full bg-[#e6f7ef] text-[#006c49] flex items-center justify-center text-[10px] font-bold">✓</span>
-                        <span>{lang === 'ar' ? 'تم إنشاء حساب المسؤول بنجاح' : 'Admin account created successfully'}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-[#131b2e]">
-                        <span className="w-4 h-4 rounded-full bg-[#e6f7ef] text-[#006c49] flex items-center justify-center text-[10px] font-bold">✓</span>
-                        <span>{lang === 'ar' ? 'تم تأكيد البريد الإلكتروني رسمياً' : 'Official email verified'}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-[#131b2e]">
-                        <span className="w-4 h-4 rounded-full bg-[#e6f7ef] text-[#006c49] flex items-center justify-center text-[10px] font-bold">✓</span>
-                        <span>{lang === 'ar' ? 'تم اعتماد الهيكل التنظيمي والفروع' : 'Structure and branches initialized'}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-[#131b2e]">
-                        <span className="w-4 h-4 rounded-full bg-[#f4fce3] text-[#416900] flex items-center justify-center text-[10px] font-bold">✓</span>
-                        <span>{lang === 'ar' ? 'المنظومة بانتظار اتصال واجهة برمجة التطبيقات (API)' : 'Ready for API backend integration'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 2: Employees */}
-            {activeTab === 'employees' && (
-              <div className="space-y-4 animate-fadeIn">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-[#131b2e]">
-                    {lang === 'ar' ? 'قائمة أعضاء الفريق والمشرفين' : 'Team Members & Staff'}
-                  </h3>
-                  <Badge variant="emerald" size="sm">
-                    {mockEmployees.length} {lang === 'ar' ? 'أعضاء' : 'Members'}
-                  </Badge>
-                </div>
-                <div className="space-y-2">
-                  {mockEmployees.map((emp) => (
-                    <MockupEmployeeRow key={emp.id} employee={emp} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Branches */}
-            {activeTab === 'branches' && (
-              <div className="space-y-4 animate-fadeIn">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-[#131b2e]">
-                    {lang === 'ar' ? 'الفروع والمقرات التابعة' : 'Branches & Locations'}
-                  </h3>
-                  <Badge variant="emerald" size="sm">
-                    {branchesList.length} {lang === 'ar' ? 'فروع' : 'Branches'}
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {branchesList.map((branchName, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3.5 rounded-xl border border-surface-dim bg-white flex items-center justify-between gap-3 shadow-xs"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#e6f7ef] text-[#006c49] flex items-center justify-center font-bold text-xs">
-                          {idx + 1}
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-[#131b2e]">{branchName}</h4>
-                          <p className="text-[11px] text-[#6c7a71]">
-                            {lang === 'ar' ? 'فرع تشغيلي نشط' : 'Active operational branch'}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="emerald" size="sm">
-                        {lang === 'ar' ? 'نشط' : 'Active'}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-          </div>
-        </MockupAppShell>
-
-      </div>
+      </MockupAppShell>
     </div>
   );
 }

@@ -111,11 +111,11 @@ export function CompanyForm({ initialData, onSubmit }: CompanyFormProps) {
       </AuthButton>
 
       {/* Already have an account */}
-      <p className="text-center text-sm text-[#3c4a42]">
+      <p className="text-center text-sm text-on-surface-variant">
         {t.signupHaveAccount}{' '}
         <a
           href={`/${lang}/login`}
-          className="font-semibold text-[#006c49] hover:text-[#005236] hover:underline transition-colors"
+          className="font-semibold text-[#006c49] hover:text-on-primary-fixed-variant hover:underline transition-colors"
         >
           {t.signupLogin}
         </a>

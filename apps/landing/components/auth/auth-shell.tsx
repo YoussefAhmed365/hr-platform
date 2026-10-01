@@ -24,8 +24,8 @@ export function AuthShell({ children, width = 'medium' }: AuthShellProps) {
       <main className="flex-1 flex items-start sm:items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
         {/* Subtle background accents matching the landing page hero */}
         <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
-          <div className="absolute top-1/4 start-1/4 w-96 h-96 bg-[#e6f7ef] rounded-full blur-3xl opacity-30" />
-          <div className="absolute bottom-1/4 end-1/4 w-80 h-80 bg-[#f4fce3] rounded-full blur-3xl opacity-20" />
+          <div className="absolute top-1/4 inset-s-1/4 w-96 h-96 bg-[#e6f7ef] rounded-full blur-3xl opacity-30" />
+          <div className="absolute bottom-1/4 inset-e-1/4 w-80 h-80 bg-[#f4fce3] rounded-full blur-3xl opacity-20" />
         </div>
 
         <div className={`w-full ${widthClasses[width]}`}>
@@ -58,7 +58,7 @@ export function AuthHeading({
         {title}
       </h1>
       {subtitle && (
-        <p className="text-sm text-[#3c4a42] leading-relaxed max-w-sm mx-auto">
+        <p className="text-sm text-on-surface-variant leading-relaxed max-w-sm mx-auto">
           {subtitle}
         </p>
       )}

@@ -26,8 +26,8 @@ export function AuthProgress({ currentStep, totalSteps = 5 }: AuthProgressProps)
         const isCompleted = i < currentStep;
 
         return (
-          <div key={step.number} className="flex items-center gap-1 sm:gap-2">
-            <div className="flex items-center gap-1.5">
+          <div key={step.number} className="flex items-center md:items-start">
+            <div className="flex flex-col items-center gap-1.5 w-[56.44px]">
               {/* Step indicator */}
               <div
                 className={cn(
@@ -36,7 +36,7 @@ export function AuthProgress({ currentStep, totalSteps = 5 }: AuthProgressProps)
                     ? 'bg-[#006c49] text-white'
                     : isActive
                       ? 'bg-[#e6f7ef] text-[#006c49] border border-[#006c49]/30'
-                      : 'bg-[#f2f3ff] text-[#6c7a71] border border-[#bbcabf]/40'
+                      : 'bg-surface-container-low text-outline border border-outline-variant/40'
                 )}
               >
                 {isCompleted ? (
@@ -56,7 +56,7 @@ export function AuthProgress({ currentStep, totalSteps = 5 }: AuthProgressProps)
                     ? 'text-[#006c49]'
                     : isCompleted
                       ? 'text-[#131b2e]'
-                      : 'text-[#6c7a71]'
+                      : 'text-outline'
                 )}
               >
                 {step.label}
@@ -67,8 +67,8 @@ export function AuthProgress({ currentStep, totalSteps = 5 }: AuthProgressProps)
             {i < steps.length - 1 && (
               <div
                 className={cn(
-                  'w-4 sm:w-8 h-px transition-colors duration-300',
-                  i < currentStep ? 'bg-[#006c49]' : 'bg-[#bbcabf]/50'
+                  'w-4 sm:w-8 h-px translate-y-0 md:translate-y-3 transition-colors duration-300',
+                  i < currentStep ? 'bg-[#006c49]' : 'bg-outline-variant/50'
                 )}
               />
             )}

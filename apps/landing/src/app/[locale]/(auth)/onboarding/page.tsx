@@ -48,8 +48,10 @@ function OnboardingFlow() {
   }, [structure, branchesList]);
 
   const handleGoToDashboard = useCallback(() => {
-    window.location.href = `/${lang}/dashboard`;
+    const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'http://localhost:5174';
+    window.location.href = `${portalUrl}?lang=${lang}`;
   }, [lang]);
+
 
   const currentStepIndex = step === 'complete' ? 4 : 3;
 

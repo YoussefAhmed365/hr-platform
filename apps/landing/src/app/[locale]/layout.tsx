@@ -53,9 +53,8 @@ export default async function RootLayout({
 			dir={dir}
 			data-scroll-behavior="smooth"
 			className={`${ibmPlexArabic.variable} ${plusJakartaSans.variable}`}
-			suppressHydrationWarning
 		>
-			<body className="min-h-screen bg-[#faf8ff] text-[#131b2e] antialiased selection:bg-primary-fixed/30 selection:text-[#006c49]">
+			<body suppressHydrationWarning className="min-h-screen bg-[#faf8ff] text-[#131b2e] antialiased selection:bg-primary-fixed/30 selection:text-[#006c49]">
 				<NextIntlClientProvider messages={messages}>
 					{children}
 				</NextIntlClientProvider>

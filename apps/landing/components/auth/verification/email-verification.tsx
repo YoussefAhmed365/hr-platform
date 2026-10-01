@@ -90,11 +90,11 @@ export function EmailVerification({ email, token, onContinue }: EmailVerificatio
           </AuthButton>
 
           {/* Quick Demo switcher */}
-          <div className="pt-4 border-t border-[#bbcabf]/30">
+          <div className="pt-4 border-t border-outline-variant/30">
             <button
               type="button"
               onClick={() => setState('pending')}
-              className="text-xs text-[#6c7a71] hover:text-[#006c49] transition-colors"
+              className="text-xs text-outline hover:text-[#006c49] transition-colors"
             >
               {lang === 'ar' ? '← العودة لحالة انتظار التأكيد' : '← Back to Pending State'}
             </button>
@@ -109,8 +109,8 @@ export function EmailVerification({ email, token, onContinue }: EmailVerificatio
     return (
       <AuthShell width="narrow">
         <div className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-full bg-[#ffdad6]/30 flex items-center justify-center">
-            <svg className="w-8 h-8 text-[#ba1a1a]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div className="mx-auto w-16 h-16 rounded-full bg-error-container/30 flex items-center justify-center">
+            <svg className="w-8 h-8 text-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
@@ -127,10 +127,10 @@ export function EmailVerification({ email, token, onContinue }: EmailVerificatio
             >
               {lang === 'ar' ? 'تجربة التأكيد الناجح' : 'Test Successful Verification'}
             </button>
-            <span className="text-[#bbcabf]">·</span>
+            <span className="text-outline-variant">·</span>
             <a
               href={`/${lang}/login`}
-              className="text-[#3c4a42] hover:text-[#006c49] font-medium hover:underline transition-colors"
+              className="text-on-surface-variant hover:text-[#006c49] font-medium hover:underline transition-colors"
             >
               {t.verifyBackToLogin}
             </a>
@@ -145,8 +145,8 @@ export function EmailVerification({ email, token, onContinue }: EmailVerificatio
     return (
       <AuthShell width="narrow">
         <div className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-full bg-[#ffdad6]/30 flex items-center justify-center">
-            <svg className="w-8 h-8 text-[#ba1a1a]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div className="mx-auto w-16 h-16 rounded-full bg-error-container/30 flex items-center justify-center">
+            <svg className="w-8 h-8 text-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
@@ -163,10 +163,10 @@ export function EmailVerification({ email, token, onContinue }: EmailVerificatio
             >
               {lang === 'ar' ? 'تجربة التأكيد الناجح' : 'Test Successful Verification'}
             </button>
-            <span className="text-[#bbcabf]">·</span>
+            <span className="text-outline-variant">·</span>
             <a
               href={`/${lang}/login`}
-              className="text-[#3c4a42] hover:text-[#006c49] font-medium hover:underline transition-colors"
+              className="text-on-surface-variant hover:text-[#006c49] font-medium hover:underline transition-colors"
             >
               {t.verifyBackToLogin}
             </a>
@@ -190,7 +190,7 @@ export function EmailVerification({ email, token, onContinue }: EmailVerificatio
         <AuthHeading title={t.verifyTitle} subtitle={t.verifySubtitle} />
 
         {/* Email display */}
-        <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#f2f3ff] border border-[#dae2fd] text-sm font-medium text-[#131b2e]">
+        <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-low border border-[#dae2fd] text-sm font-medium text-[#131b2e]">
           <span>{t.verifySentTo}:</span>
           <span dir="ltr" className="text-[#006c49]">{effectiveEmail}</span>
         </div>
@@ -232,14 +232,14 @@ export function EmailVerification({ email, token, onContinue }: EmailVerificatio
               onClick={() => {
                 window.location.href = `/${lang}/signup`;
               }}
-              className="text-[#3c4a42] hover:text-[#006c49] font-medium hover:underline transition-colors"
+              className="text-on-surface-variant hover:text-[#006c49] font-medium hover:underline transition-colors"
             >
               {t.verifyChangeEmail}
             </button>
-            <span className="text-[#bbcabf]">·</span>
+            <span className="text-outline-variant">·</span>
             <a
               href={`/${lang}/login`}
-              className="text-[#3c4a42] hover:text-[#006c49] font-medium hover:underline transition-colors"
+              className="text-on-surface-variant hover:text-[#006c49] font-medium hover:underline transition-colors"
             >
               {t.verifyBackToLogin}
             </a>
@@ -247,7 +247,7 @@ export function EmailVerification({ email, token, onContinue }: EmailVerificatio
         </div>
 
         {/* Interactive MVP Demo Panel for Client Presentation */}
-        <div className="mt-6 pt-5 border-t border-[#bbcabf]/30">
+        <div className="mt-6 pt-5 border-t border-outline-variant/30">
           <div className="p-3.5 rounded-xl bg-linear-to-br from-[#e6f7ef]/60 to-[#f4fce3]/40 border border-[#006c49]/20 text-start space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[#006c49] flex items-center gap-1.5">
@@ -258,7 +258,7 @@ export function EmailVerification({ email, token, onContinue }: EmailVerificatio
                 MVP Flow
               </span>
             </div>
-            <p className="text-[11px] text-[#3c4a42] leading-relaxed">
+            <p className="text-[11px] text-on-surface-variant leading-relaxed">
               {lang === 'ar'
                 ? 'لمحاكاة فتح رابط التأكيد المرسل إلى البريد دون انتظار، اضغط على الزر أدناه:'
                 : 'To simulate clicking the verification link received in the email, click below:'}
@@ -269,7 +269,7 @@ export function EmailVerification({ email, token, onContinue }: EmailVerificatio
                 await authService.verifyEmail('valid');
                 setState('verified');
               }}
-              className="w-full py-2 px-3 rounded-lg bg-[#006c49] text-white text-xs font-bold hover:bg-[#005236] transition-colors shadow-xs flex items-center justify-center gap-2"
+              className="w-full py-2 px-3 rounded-lg bg-[#006c49] text-white text-xs font-bold hover:bg-on-primary-fixed-variant transition-colors shadow-xs flex items-center justify-center gap-2"
             >
               <span>{lang === 'ar' ? 'محاكاة تأكيد البريد الإلكتروني (متابعة التدفق)' : 'Simulate Email Verification (Proceed)'}</span>
               <span className="rtl:rotate-180">➔</span>
@@ -278,15 +278,15 @@ export function EmailVerification({ email, token, onContinue }: EmailVerificatio
               <button
                 type="button"
                 onClick={() => setState('expired')}
-                className="text-[#6c7a71] hover:text-[#ba1a1a] hover:underline"
+                className="text-outline hover:text-error hover:underline"
               >
                 {lang === 'ar' ? 'تجربة رابط منتهي' : 'Test Expired Token'}
               </button>
-              <span className="text-[#bbcabf]">·</span>
+              <span className="text-outline-variant">·</span>
               <button
                 type="button"
                 onClick={() => setState('invalid')}
-                className="text-[#6c7a71] hover:text-[#ba1a1a] hover:underline"
+                className="text-outline hover:text-error hover:underline"
               >
                 {lang === 'ar' ? 'تجربة رابط غير صالح' : 'Test Invalid Token'}
               </button>

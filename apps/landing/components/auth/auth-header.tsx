@@ -6,7 +6,7 @@ export function AuthHeader() {
   const { t, lang, toggleLang } = useAuthLanguage();
 
   return (
-    <header className="w-full border-b border-[#bbcabf]/30 bg-white/80 backdrop-blur-md">
+    <header className="w-full border-b border-outline-variant/30 bg-white/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <nav className="flex items-center justify-between h-14 sm:h-16">
           {/* Logo */}
@@ -29,7 +29,7 @@ export function AuthHeader() {
             <button
               onClick={toggleLang}
               type="button"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-[#3c4a42] hover:text-[#131b2e] hover:bg-[#f2f3ff] rounded-lg transition-colors border border-[#bbcabf]/50"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-on-surface-variant hover:text-[#131b2e] hover:bg-surface-container-low rounded-lg transition-colors border border-outline-variant/50"
               aria-label="Switch Language"
             >
               <svg className="w-3.5 h-3.5 text-[#006c49]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

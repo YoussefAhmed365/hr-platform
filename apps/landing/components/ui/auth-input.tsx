@@ -32,16 +32,16 @@ export const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
             id={inputId}
             className={cn(
               'block w-full h-11 px-3.5 rounded-xl border bg-white text-[#131b2e] text-sm',
-              'placeholder:text-[#6c7a71]/60',
+              'placeholder:text-outline/60',
               'transition-all duration-200 outline-none',
               'focus:ring-2 focus:ring-[#006c49]/20 focus:border-[#006c49]',
-              'hover:border-[#bbcabf]',
-              'disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#f2f3ff]',
+              'hover:border-outline-variant',
+              'disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-surface-container-low',
               error
-                ? 'border-[#ba1a1a] focus:ring-[#ba1a1a]/20 focus:border-[#ba1a1a]'
+                ? 'border-error focus:ring-error/20 focus:border-error'
                 : success
                   ? 'border-[#006c49] focus:ring-[#006c49]/20'
-                  : 'border-[#bbcabf]',
+                  : 'border-outline-variant',
               endAdornment ? 'pe-11' : '',
               className
             )}
@@ -52,7 +52,7 @@ export const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
             {...props}
           />
           {endAdornment && (
-            <div className="absolute inset-y-0 end-0 flex items-center pe-3">
+            <div className="absolute inset-y-0 inset-e-0 flex items-center pe-3">
               {endAdornment}
             </div>
           )}
@@ -60,12 +60,12 @@ export const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
         {error && (
           <p
             id={errorId}
-            className="flex items-center gap-1.5 text-xs text-[#ba1a1a] mt-1"
+            className="flex items-center gap-1.5 text-xs text-error mt-1"
             role="alert"
             aria-live="polite"
           >
             <svg
-              className="w-3.5 h-3.5 flex-shrink-0"
+              className="w-3.5 h-3.5 shrink-0"
               viewBox="0 0 16 16"
               fill="currentColor"
             >
@@ -75,7 +75,7 @@ export const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
           </p>
         )}
         {hint && !error && (
-          <p id={hintId} className="text-xs text-[#6c7a71] mt-1">
+          <p id={hintId} className="text-xs text-outline mt-1">
             {hint}
           </p>
         )}
