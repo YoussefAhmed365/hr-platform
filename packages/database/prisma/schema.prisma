@@ -26,109 +26,184 @@ enum InvitationStatus {
   EXPIRED
 }
 
-// ------------------------------------------------------
-// 1. الباقات والشركات والفروع (Multi-Tenancy Core)
-// ------------------------------------------------------
-
+// ==========================================
+// 1. SaaS Plans - Hybrid Pattern
+// ==========================================
 model SaaSPlan {
-  id                    String    @id @default(cuid())
-  name                  String    @unique
-  hasBranches           Boolean   @default(false)
-  maxBranches           Int       @default(1)
-  maxEmployeesPerBranch Int?
-  maxTotalEmployees     Int
-  companies             Company[]
-  createdAt             DateTime  @default(now())
+  id           Int     @id @default(autoincrement())
+  name         String  @unique // STARTER, BUSINESS, ENTERPRISE
+  description  String?
+  price        Decimal @default(0.00) @db.Decimal(19, 4)
+  billingCycle String  @default("MONTHLY") // MONTHLY, YEARLY
+
+  // hard limits
+  maxBranches  Int @default(1) // 1 for no branches plan, -1 for unlimited, any number for limited branches
+  maxEmployees Int @default(50)
+  maxManagers  Int @default(2)
+
+  // flexible feature flags
+  features Json @default("{}")
+
+  companies Company[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
+// ==========================================
+// 2. Companies / Tenants
+// ==========================================
 model Company {
-  id                     String        @id @default(cuid())
-  name                   String
-  slug                   String        @unique
-  status                 CompanyStatus @default(TRIAL)
-  planId                 String
-  plan                   SaaSPlan      @relation(fields: [planId], references: [id])
+  id       String        @id @default(uuid(7)) @db.Uuid
+  name     String
+  slug     String        @unique // company url slug  
+  status   CompanyStatus @default(TRIAL)
+  isActive Boolean       @default(true) // super admin control
 
-  // مؤشرات مراقبة النشاط للـ Super Admin
+  planId Int
+  plan   SaaSPlan @relation(fields: [planId], references: [id])
+
+  // Overrides for company
+  customMaxEmployees Int?
+  customMaxBranches  Int?
+  customMaxManagers  Int?
+
+  payrollCycleDay Int @default(1)
+
+  // Activity indicators for super admin
   lastPayrollActivity    DateTime?
   lastKpiActivity        DateTime?
   lastPersonnelActivity  DateTime?
   lastAttendanceActivity DateTime?
 
-  branches               Branch[]
-  users                  User[]
-  employees              Employee[]
-  invitations            UserInvitation[]
-  auditLogs              AuditLog[]
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
+  // Relationships
+  branches    Branch[]
+  users       User[]
+  employees   Employee[]
+  invitations UserInvitation[]
+  auditLogs   AuditLog[]
+
+  attendanceSettings     AttendanceSettings?
+  attendanceRecords      AttendanceRecord[]
+  employeeShifts         EmployeeShift[]
+  shiftExceptions        ShiftException[]
+  deductionPolicy        DeductionPolicy?
+  overtimeApprovals      OvertimeApproval[]
+  leaveRequests          LeaveRequest[]
+  companyHolidays        CompanyHoliday[]
+  allowanceTypes         AllowanceType[]
+  employeeAllowances     EmployeeAllowance[]
+  advances               Advance[]
+  payrollRuns            PayrollRun[]
+  payrollItems           PayrollItem[]
+  kpiGoals               KPIGoal[]
+  incidents              EmployeeIncident[]
+  performanceReviews     PerformanceReview[]
+  notificationThresholds NotificationThreshold[]
+  notifications          Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
 }
 
+// ==========================================
+// 3. Branches & Schedules
+// ==========================================
 model Branch {
-  id          String           @id @default(cuid())
-  name        String
-  isDefault   Boolean          @default(false)
-  companyId   String
-  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
+  id        String  @id @default(uuid(7)) @db.Uuid
+  companyId String  @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name      String
+  code      String?
+  isDefault Boolean @default(false) // True if company has no branches
+  address   String?
+  phone     String?
+
+  // Weekend days and annual leave
+  weekendDays     String[] @default(["FRIDAY", "SATURDAY"])
+  annualLeaveDays Int      @default(21)
+
   managers    User[]
   employees   Employee[]
   invitations UserInvitation[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
 
+  attendanceRecords  AttendanceRecord[]
+  employeeShifts     EmployeeShift[]
+  shiftExceptions    ShiftException[]
+  overtimeApprovals  OvertimeApproval[]
+  leaveRequests      LeaveRequest[]
+  employeeAllowances EmployeeAllowance[]
+  advances           Advance[]
+  payrollItems       PayrollItem[]
+  kpiGoals           KPIGoal[]
+  incidents          EmployeeIncident[]
+  performanceReviews PerformanceReview[]
+  notifications      Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, code])
   @@index([companyId])
 }
 
-// ------------------------------------------------------
-// 2. المستخدمون والجلسات (متوافق مع Better Auth + RBAC)
-// ------------------------------------------------------
-
+// ==========================================
+// 4. Users & Auth (Better Auth + RBAC)
+// ==========================================
 model User {
-  id               String     @id @default(cuid())
-  name             String
-  email            String     @unique
-  emailVerified    Boolean    @default(false)
-  image            String?
+  id            String  @id @default(uuid(7)) @db.Uuid
+  name          String
+  email         String  @unique
+  emailVerified Boolean @default(false)
+  image         String?
+
+  // Role-based access control
   role             SystemRole @default(COMPANY_ADMIN)
   isActive         Boolean    @default(true)
   twoFactorEnabled Boolean    @default(false)
 
-  // عزل المستأجرين والفرع
-  companyId        String?
-  company          Company?   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId         String?
-  branch           Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  // Tenant and branch isolation
+  companyId String?  @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId  String?  @db.Uuid
+  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
-  employeeProfile  Employee?
-  sessions         Session[]
-  accounts         Account[]
-  auditLogs        AuditLog[]
+  employeeProfile Employee?
+  sessions        Session[]
+  accounts        Account[]
+  auditLogs       AuditLog[]
 
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  approvedOvertimes OvertimeApproval[]  @relation("OvertimeApprover")
+  approvedLeaves    LeaveRequest[]      @relation("LeaveApprover")
+  createdReviews    PerformanceReview[] @relation("ReviewCreator")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([companyId, role])
   @@index([branchId])
 }
 
 model Session {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid(7)) @db.Uuid
   expiresAt DateTime
   token     String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   ipAddress String?
   userAgent String?
-  userId    String
+  userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Account {
-  id                    String    @id @default(cuid())
+  id                    String    @id @default(uuid(7)) @db.Uuid
   accountId             String
   providerId            String
-  userId                String
+  userId                String    @db.Uuid
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?
   refreshToken          String?
@@ -136,13 +211,13 @@ model Account {
   accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
   scope                 String?
-  password              String?   // يُخزن فيه الـ Hash الخاص بـ Better Auth
+  password              String? // For storing Better Auth password
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 }
 
 model Verification {
-  id         String    @id @default(cuid())
+  id         String    @id @default(uuid(7)) @db.Uuid
   identifier String
   value      String
   expiresAt  DateTime
@@ -150,76 +225,106 @@ model Verification {
   updatedAt  DateTime? @updatedAt
 }
 
+// ==========================================
+// 5. Invitations
+// ==========================================
 model UserInvitation {
-  id        String           @id @default(cuid())
+  id        String           @id @default(uuid(7)) @db.Uuid
   email     String
   role      SystemRole
   token     String           @unique
   status    InvitationStatus @default(PENDING)
   expiresAt DateTime
 
-  companyId String
-  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId  String?
-  branch    Branch?          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  companyId String  @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId  String? @db.Uuid
+  branch    Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime         @default(now())
+  createdAt DateTime @default(now())
 
   @@index([companyId])
   @@index([token])
 }
 
-// ------------------------------------------------------
-// 3. بيانات الموظفين (Personnel Master Data)
-// ------------------------------------------------------
-
+// ==========================================
+// 6. Employee Master Data
+// ==========================================
 model Employee {
-  id                  String     @id @default(cuid())
+  id                  String    @id @default(uuid(7)) @db.Uuid
   fullName            String
   email               String?
   phone               String?
-  nationalIdEncrypted String     // الرقم القومي مشفر بالكامل
+  nationalIdEncrypted String
   gender              String?
   maritalStatus       String?
   religion            String?
   dateOfBirth         DateTime?
-  
-  jobTitle            String
-  department          String?
-  contractType        String     @default("PERMANENT") // PERMANENT, TEMPORARY, PROBATION
-  status              String     @default("ACTIVE")    // ACTIVE, ON_LEAVE, RESIGNED, TERMINATED
-  baseSalary          Decimal    @db.Decimal(19, 4)
-  hireDate            DateTime
 
-  // مفاتيح الربط الثلاثي الإجبارية
-  companyId           String
-  company             Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId            String
-  branch              Branch     @relation(fields: [branchId], references: [id])
+  jobTitle     String
+  department   String?
+  contractType String   @default("PERMANENT") // PERMANENT, TEMPORARY
+  status       String   @default("ACTIVE") // ACTIVE, ON_LEAVE, TERMINATED
+  baseSalary   Decimal  @db.Decimal(19, 4)
+  hireDate     DateTime
 
-  // علاقة المدير المباشر الذاتية (Self-referencing)
-  managerId           String?
-  manager             Employee?  @relation("ManagerHierarchy", fields: [managerId], references: [id])
-  subordinates        Employee[] @relation("ManagerHierarchy")
+  // Mandatory Triple Binding
+  companyId String  @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId  String  @db.Uuid
+  branch    Branch  @relation(fields: [branchId], references: [id])
 
-  // حساب الدخول (مؤجل للمرحلة الثانية)
-  userId              String?    @unique
-  user                User?      @relation(fields: [userId], references: [id])
+  // Direct manager relationship
+  managerId    String?    @db.Uuid
+  manager      Employee?  @relation("ManagerHierarchy", fields: [managerId], references: [id])
+  subordinates Employee[] @relation("ManagerHierarchy")
 
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  // User account (postponed activation)
+  userId String? @unique @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id])
+
+  documents          EmployeeDocument[]
+  attendanceRecords  AttendanceRecord[]
+  shift              EmployeeShift?
+  shiftExceptions    ShiftException[]
+  overtimeApprovals  OvertimeApproval[]
+  leaveRequests      LeaveRequest[]
+  allowances         EmployeeAllowance[]
+  advances           Advance[]
+  payrollItems       PayrollItem[]
+  taxProfile         TaxProfile?
+  kpiAssignments     KPIGoalAssignment[]
+  kpiResults         KPIResult[]
+  incidents          EmployeeIncident[]
+  performanceReviews PerformanceReview[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([companyId, branchId])
   @@index([managerId])
 }
 
-// ------------------------------------------------------
-// 4. القواعد القانونية وسجل التدقيق (Compliance & Audit)
-// ------------------------------------------------------
+model EmployeeDocument {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  employeeId     String    @db.Uuid
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  documentType   String
+  documentNumber String?
+  issueDate      DateTime? @db.Date
+  expiryDate     DateTime? @db.Date
+  status         String    @default("VALID")
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// 7. Audit & Compliance
+// ==========================================
 model GlobalComplianceRule {
-  id            String    @id @default(cuid())
-  category      String    // "TAX", "INSURANCE", "LABOR_LAW"
+  id            String    @id @default(uuid(7)) @db.Uuid
+  category      String // "TAX", "INSURANCE", "LABOR_LAW"
   version       Int       @default(1)
   effectiveFrom DateTime
   effectiveTo   DateTime?
@@ -231,10 +336,10 @@ model GlobalComplianceRule {
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String?  @db.Uuid
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  companyId String?
+  companyId String?  @db.Uuid
   company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   action    String
   entity    String
@@ -244,4 +349,432 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([companyId, createdAt])
+}
+
+// ==========================================
+// 8. Attendance & Leaves
+// ==========================================
+
+model AttendanceSettings {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  companyId       String   @unique @db.Uuid
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  gracePeriodMins Int      @default(15)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AttendanceRecord {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  companyId  String   @db.Uuid
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId   String   @db.Uuid
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId String   @db.Uuid
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  date         DateTime  @db.Date
+  checkIn      DateTime?
+  checkOut     DateTime?
+  status       String // PRESENT, LATE, ABSENT
+  delayMinutes Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([companyId, branchId])
+}
+
+model EmployeeShift {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  companyId  String   @db.Uuid
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId   String   @db.Uuid
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId String   @unique @db.Uuid
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  startTime  String // e.g., "09:00"
+  endTime    String // e.g., "17:00"
+  daysOfWeek String[] // e.g., ["SUNDAY", "MONDAY", ...]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ShiftException {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  companyId  String   @db.Uuid
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId   String   @db.Uuid
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId String   @db.Uuid
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  date      DateTime @db.Date
+  startTime String
+  endTime   String
+  reason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DeductionPolicy {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  companyId String  @unique @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  rules Json // stores the deduction rules/formula
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OvertimeApproval {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  companyId  String   @db.Uuid
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId   String   @db.Uuid
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId String   @db.Uuid
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  date             DateTime @db.Date
+  hours            Decimal  @db.Decimal(5, 2)
+  type             String // DAY, NIGHT, HOLIDAY
+  approvedByUserId String   @db.Uuid
+  approvedByUser   User     @relation("OvertimeApprover", fields: [approvedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LeaveRequest {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  companyId  String   @db.Uuid
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId   String   @db.Uuid
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId String   @db.Uuid
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  type      String // ANNUAL, SICK, UNPAID, etc.
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+
+  approvedByUserId String? @db.Uuid
+  approvedByUser   User?   @relation("LeaveApprover", fields: [approvedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CompanyHoliday {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  companyId String  @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  date DateTime @db.Date
+  name String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// 9. Payroll
+// ==========================================
+
+model AllowanceType {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  companyId String  @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name String
+
+  employeeAllowances EmployeeAllowance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmployeeAllowance {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  companyId  String   @db.Uuid
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId   String   @db.Uuid
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId String   @db.Uuid
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  allowanceTypeId String        @db.Uuid
+  allowanceType   AllowanceType @relation(fields: [allowanceTypeId], references: [id], onDelete: Cascade)
+
+  amount Decimal @db.Decimal(19, 4)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Advance {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  companyId  String   @db.Uuid
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId   String   @db.Uuid
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId String   @db.Uuid
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  totalAmount       Decimal  @db.Decimal(19, 4)
+  installmentsCount Int
+  startDate         DateTime @db.Date
+
+  installments AdvanceInstallment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdvanceInstallment {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  advanceId String  @db.Uuid
+  advance   Advance @relation(fields: [advanceId], references: [id], onDelete: Cascade)
+
+  payrollRunId String?     @db.Uuid
+  payrollRun   PayrollRun? @relation(fields: [payrollRunId], references: [id])
+
+  amount Decimal @db.Decimal(19, 4)
+  status String  @default("PENDING") // PENDING, PAID
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PayrollRun {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  companyId String  @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  cycleDate        DateTime @db.Date
+  status           String   @default("OPEN") // OPEN, CLOSED
+  taxRuleVersionId String?  @db.Uuid // Links to tax rule version used
+
+  payrollItems        PayrollItem[]
+  advanceInstallments AdvanceInstallment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PayrollItem {
+  id           String     @id @default(uuid(7)) @db.Uuid
+  payrollRunId String     @db.Uuid
+  payrollRun   PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  companyId    String     @db.Uuid
+  company      Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId     String     @db.Uuid
+  branch       Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId   String     @db.Uuid
+  employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  basicSalary Decimal @db.Decimal(19, 4)
+  allowances  Decimal @db.Decimal(19, 4)
+  overtime    Decimal @db.Decimal(19, 4)
+  deductions  Decimal @db.Decimal(19, 4)
+  taxes       Decimal @db.Decimal(19, 4)
+  netSalary   Decimal @db.Decimal(19, 4)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// 10. Taxes
+// ==========================================
+model TaxRuleVersion {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  versionName   String
+  effectiveFrom DateTime  @db.Date
+  effectiveTo   DateTime? @db.Date
+  isImmutable   Boolean   @default(false)
+
+  taxBrackets TaxBracket[]
+  rulesConfig Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TaxBracket {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  taxRuleVersionId String         @db.Uuid
+  taxRuleVersion   TaxRuleVersion @relation(fields: [taxRuleVersionId], references: [id], onDelete: Cascade)
+
+  minIncome Decimal  @db.Decimal(19, 4)
+  maxIncome Decimal? @db.Decimal(19, 4)
+  taxRate   Decimal  @db.Decimal(5, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TaxProfile {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  employeeId String   @unique @db.Uuid
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  taxStatus        String
+  taxIdNumber      String?
+  taxRuleVersionId String? @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// 11. KPI & Performance
+// ==========================================
+
+model KPITemplate {
+  id              String  @id @default(uuid(7)) @db.Uuid
+  category        String
+  name            String
+  description     String?
+  measurementType String // NUMBER, PERCENTAGE, FINANCIAL, RATING, BOOLEAN
+  defaultWeight   Decimal @db.Decimal(5, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model KPIGoal {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  companyId String  @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId  String? @db.Uuid
+  branch    Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  category        String
+  name            String
+  description     String?
+  measurementType String
+  targetValue     Decimal @db.Decimal(19, 4)
+  weight          Decimal @db.Decimal(5, 2)
+
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+
+  assignments KPIGoalAssignment[]
+  results     KPIResult[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model KPIGoalAssignment {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  kpiGoalId String  @db.Uuid
+  kpiGoal   KPIGoal @relation(fields: [kpiGoalId], references: [id], onDelete: Cascade)
+
+  employeeId String?   @db.Uuid
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  department String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kpiGoalId])
+  @@index([employeeId])
+}
+
+model KPIResult {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  kpiGoalId  String   @db.Uuid
+  kpiGoal    KPIGoal  @relation(fields: [kpiGoalId], references: [id], onDelete: Cascade)
+  employeeId String   @db.Uuid
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  actualValue Decimal  @db.Decimal(19, 4)
+  status      String // EXCEEDED, ON_TRACK, NEEDS_ATTENTION, BELOW_TARGET
+  date        DateTime @db.Date
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmployeeIncident {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  companyId  String   @db.Uuid
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId   String   @db.Uuid
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId String   @db.Uuid
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  date        DateTime @db.Date
+  description String
+  severity    String // LOW, MEDIUM, HIGH
+  status      String   @default("OPEN")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PerformanceReview {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  companyId  String   @db.Uuid
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId   String   @db.Uuid
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId String   @db.Uuid
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  reviewPeriod String
+  overallScore Decimal @db.Decimal(5, 2)
+  status       String  @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, COMPLETED
+
+  createdByUserId String @db.Uuid
+  createdByUser   User   @relation("ReviewCreator", fields: [createdByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// 12. Notifications
+// ==========================================
+
+model NotificationThreshold {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  companyId String  @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  notificationType String
+  thresholdValue   Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, notificationType])
+}
+
+model Notification {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  companyId String  @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId  String? @db.Uuid
+  branch    Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  type     String
+  source   String
+  severity String // CRITICAL, WARNING, INFO
+  status   String @default("NEW") // NEW, READ, RESOLVED
+  message  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
