@@ -7,23 +7,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum SystemRole {
-  SUPER_ADMIN
-  COMPANY_ADMIN
-  BRANCH_MANAGER
-  EMPLOYEE
-}
-
-enum CompanyStatus {
+enum OrganizationStatus {
   TRIAL
   ACTIVE
   SUSPENDED
-}
-
-enum InvitationStatus {
-  PENDING
-  ACCEPTED
-  EXPIRED
 }
 
 // ==========================================
@@ -44,29 +31,34 @@ model SaaSPlan {
   // flexible feature flags
   features Json @default("{}")
 
-  companies Company[]
+  organizations Organization[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 // ==========================================
-// 2. Companies / Tenants
+// 2. Organizations / Tenants (Better Auth)
 // ==========================================
-model Company {
-  id       String        @id @default(uuid(7)) @db.Uuid
+model Organization {
+  id       String             @id @default(uuid(7)) @db.Uuid
   name     String
-  slug     String        @unique // company url slug  
-  status   CompanyStatus @default(TRIAL)
-  isActive Boolean       @default(true) // super admin control
+  slug     String             @unique
+  logo     String?
+  metadata Json? // Storing any additional metadata for Customization
+  status   OrganizationStatus @default(TRIAL)
+  isActive Boolean            @default(true) // super admin control
 
   planId Int
   plan   SaaSPlan @relation(fields: [planId], references: [id])
 
-  // Overrides for company
-  customMaxEmployees Int?
-  customMaxBranches  Int?
-  customMaxManagers  Int?
+  // Overrides for organization (Customized limits for Enterprise)
+  // {
+  //   "maxEmployees": -1,
+  //   "maxBranches": 3,
+  //   "features": { "advancedAudit": true }
+  // }
+  overrides Json?
 
   payrollCycleDay Int @default(1)
 
@@ -78,9 +70,10 @@ model Company {
 
   // Relationships
   branches    Branch[]
-  users       User[]
+  members     Member[]
+  roles       Role[]
   employees   Employee[]
-  invitations UserInvitation[]
+  invitations Invitation[]
   auditLogs   AuditLog[]
 
   attendanceSettings     AttendanceSettings?
@@ -90,7 +83,7 @@ model Company {
   deductionPolicy        DeductionPolicy?
   overtimeApprovals      OvertimeApproval[]
   leaveRequests          LeaveRequest[]
-  companyHolidays        CompanyHoliday[]
+  organizationHolidays   OrganizationHoliday[]
   allowanceTypes         AllowanceType[]
   employeeAllowances     EmployeeAllowance[]
   advances               Advance[]
@@ -106,19 +99,20 @@ model Company {
   updatedAt DateTime @updatedAt
 
   @@index([slug])
+  @@map("organization")
 }
 
 // ==========================================
 // 3. Branches & Schedules
 // ==========================================
 model Branch {
-  id        String  @id @default(uuid(7)) @db.Uuid
-  companyId String  @db.Uuid
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   name      String
   code      String?
-  isDefault Boolean @default(false) // True if company has no branches
+  isDefault Boolean @default(false) // True if organization has no branches
   address   String?
   phone     String?
 
@@ -126,9 +120,9 @@ model Branch {
   weekendDays     String[] @default(["FRIDAY", "SATURDAY"])
   annualLeaveDays Int      @default(21)
 
-  managers    User[]
+  members     Member[]
   employees   Employee[]
-  invitations UserInvitation[]
+  invitations Invitation[]
 
   attendanceRecords  AttendanceRecord[]
   employeeShifts     EmployeeShift[]
@@ -146,12 +140,12 @@ model Branch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([companyId, code])
-  @@index([companyId])
+  @@unique([organizationId, code])
+  @@index([organizationId])
 }
 
 // ==========================================
-// 4. Users & Auth (Better Auth + RBAC)
+// 4. Users & Auth (Better Auth Core + Org Plugin)
 // ==========================================
 model User {
   id            String  @id @default(uuid(7)) @db.Uuid
@@ -160,22 +154,20 @@ model User {
   emailVerified Boolean @default(false)
   image         String?
 
-  // Role-based access control
-  role             SystemRole @default(COMPANY_ADMIN)
-  isActive         Boolean    @default(true)
-  twoFactorEnabled Boolean    @default(false)
-
-  // Tenant and branch isolation
-  companyId String?  @db.Uuid
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId  String?  @db.Uuid
-  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  role                 String  @default("user")
+  isActive             Boolean @default(true)
+  twoFactorEnabled     Boolean @default(false)
+  twoFactorSecret      String?
+  twoFactorBackupCodes String?
 
   employeeProfile Employee?
   sessions        Session[]
   accounts        Account[]
   auditLogs       AuditLog[]
+  members         Member[]
+  invitations     Invitation[]
 
+  // Approver relations (the authenticated User performs these actions)
   approvedOvertimes OvertimeApproval[]  @relation("OvertimeApprover")
   approvedLeaves    LeaveRequest[]      @relation("LeaveApprover")
   createdReviews    PerformanceReview[] @relation("ReviewCreator")
@@ -183,37 +175,47 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([companyId, role])
-  @@index([branchId])
+  @@map("user")
 }
 
 model Session {
   id        String   @id @default(uuid(7)) @db.Uuid
   expiresAt DateTime
   token     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
   ipAddress String?
   userAgent String?
   userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Better Auth Organization Plugin — tracks the active org context
+  activeOrganizationId String? @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("session")
 }
 
 model Account {
-  id                    String    @id @default(uuid(7)) @db.Uuid
-  accountId             String
-  providerId            String
-  userId                String    @db.Uuid
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String @id @default(uuid(7)) @db.Uuid
+  accountId  String
+  providerId String
+  userId     String @db.Uuid
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // OAuth fields — mandatory for SSO integrations (Google, Microsoft)
   accessToken           String?
   refreshToken          String?
   idToken               String?
   accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
   scope                 String?
-  password              String? // For storing Better Auth password
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+
+  password  String? // For storing Better Auth password
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("account")
 }
 
 model Verification {
@@ -223,32 +225,107 @@ model Verification {
   expiresAt  DateTime
   createdAt  DateTime? @default(now())
   updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
 }
 
 // ==========================================
-// 5. Invitations
+// 5. Member (Better Auth Org Plugin Pivot)
 // ==========================================
-model UserInvitation {
-  id        String           @id @default(uuid(7)) @db.Uuid
-  email     String
-  role      SystemRole
-  token     String           @unique
-  status    InvitationStatus @default(PENDING)
-  expiresAt DateTime
+model Member {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String       @db.Uuid
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("member")
 
-  companyId String  @db.Uuid
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId  String? @db.Uuid
-  branch    Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  // Custom RBAC role
+  customRoleId String? @db.Uuid
+  customRole   Role?   @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+
+  // Branch-level scoping (which branch this member operates in)
+  branchId String? @db.Uuid
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
-  @@index([companyId])
-  @@index([token])
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("member")
 }
 
 // ==========================================
-// 6. Employee Master Data
+// 5.5 Custom RBAC (Organization Roles)
+// ==========================================
+model Role {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+
+  permissions RolePermission[]
+  members     Member[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, name])
+}
+
+model Permission {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  action      String
+  subject     String
+  description String?
+
+  roles RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([action, subject])
+}
+
+model RolePermission {
+  id           String     @id @default(uuid(7)) @db.Uuid
+  roleId       String     @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String     @db.Uuid
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([roleId, permissionId])
+}
+
+// ==========================================
+// 6. Invitations (Better Auth Org Plugin)
+// ==========================================
+model Invitation {
+  id        String @id @default(uuid(7)) @db.Uuid
+  email     String
+  inviterId String @db.Uuid
+  inviter   User   @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  status    String @default("pending") // pending, accepted, rejected, canceled
+  role      String
+
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?      @db.Uuid
+  branch         Branch?      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([organizationId])
+  @@map("invitation")
+}
+
+// ==========================================
+// 7. Employee Master Data
 // ==========================================
 model Employee {
   id                  String    @id @default(uuid(7)) @db.Uuid
@@ -269,10 +346,10 @@ model Employee {
   hireDate     DateTime
 
   // Mandatory Triple Binding
-  companyId String  @db.Uuid
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId  String  @db.Uuid
-  branch    Branch  @relation(fields: [branchId], references: [id])
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String       @db.Uuid
+  branch         Branch       @relation(fields: [branchId], references: [id])
 
   // Direct manager relationship
   managerId    String?    @db.Uuid
@@ -301,7 +378,7 @@ model Employee {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([companyId, branchId])
+  @@index([organizationId, branchId])
   @@index([managerId])
 }
 
@@ -320,7 +397,7 @@ model EmployeeDocument {
 }
 
 // ==========================================
-// 7. Audit & Compliance
+// 8. Audit & Compliance
 // ==========================================
 model GlobalComplianceRule {
   id            String    @id @default(uuid(7)) @db.Uuid
@@ -336,42 +413,42 @@ model GlobalComplianceRule {
 }
 
 model AuditLog {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  userId    String?  @db.Uuid
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  companyId String?  @db.Uuid
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  action    String
-  entity    String
-  oldValue  Json?
-  newValue  Json?
-  ipAddress String?
-  createdAt DateTime @default(now())
+  id             String        @id @default(uuid(7)) @db.Uuid
+  userId         String?       @db.Uuid
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organizationId String?       @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  action         String
+  entity         String
+  oldValue       Json?
+  newValue       Json?
+  ipAddress      String?
+  createdAt      DateTime      @default(now())
 
-  @@index([companyId, createdAt])
+  @@index([organizationId, createdAt])
 }
 
 // ==========================================
-// 8. Attendance & Leaves
+// 9. Attendance & Leaves
 // ==========================================
 
 model AttendanceSettings {
-  id              String   @id @default(uuid(7)) @db.Uuid
-  companyId       String   @unique @db.Uuid
-  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  gracePeriodMins Int      @default(15)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id              String       @id @default(uuid(7)) @db.Uuid
+  organizationId  String       @unique @db.Uuid
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  gracePeriodMins Int          @default(15)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 }
 
 model AttendanceRecord {
-  id         String   @id @default(uuid(7)) @db.Uuid
-  companyId  String   @db.Uuid
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String   @db.Uuid
-  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employeeId String   @db.Uuid
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String       @db.Uuid
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId     String       @db.Uuid
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   date         DateTime  @db.Date
   checkIn      DateTime?
@@ -383,17 +460,17 @@ model AttendanceRecord {
   updatedAt DateTime @updatedAt
 
   @@unique([employeeId, date])
-  @@index([companyId, branchId])
+  @@index([organizationId, branchId])
 }
 
 model EmployeeShift {
-  id         String   @id @default(uuid(7)) @db.Uuid
-  companyId  String   @db.Uuid
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String   @db.Uuid
-  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employeeId String   @unique @db.Uuid
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String       @db.Uuid
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId     String       @unique @db.Uuid
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   startTime  String // e.g., "09:00"
   endTime    String // e.g., "17:00"
@@ -404,13 +481,13 @@ model EmployeeShift {
 }
 
 model ShiftException {
-  id         String   @id @default(uuid(7)) @db.Uuid
-  companyId  String   @db.Uuid
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String   @db.Uuid
-  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employeeId String   @db.Uuid
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String       @db.Uuid
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId     String       @db.Uuid
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   date      DateTime @db.Date
   startTime String
@@ -422,9 +499,9 @@ model ShiftException {
 }
 
 model DeductionPolicy {
-  id        String  @id @default(uuid(7)) @db.Uuid
-  companyId String  @unique @db.Uuid
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @unique @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   rules Json // stores the deduction rules/formula
 
@@ -433,13 +510,13 @@ model DeductionPolicy {
 }
 
 model OvertimeApproval {
-  id         String   @id @default(uuid(7)) @db.Uuid
-  companyId  String   @db.Uuid
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String   @db.Uuid
-  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employeeId String   @db.Uuid
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String       @db.Uuid
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId     String       @db.Uuid
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   date             DateTime @db.Date
   hours            Decimal  @db.Decimal(5, 2)
@@ -452,13 +529,13 @@ model OvertimeApproval {
 }
 
 model LeaveRequest {
-  id         String   @id @default(uuid(7)) @db.Uuid
-  companyId  String   @db.Uuid
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String   @db.Uuid
-  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employeeId String   @db.Uuid
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String       @db.Uuid
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId     String       @db.Uuid
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   type      String // ANNUAL, SICK, UNPAID, etc.
   startDate DateTime @db.Date
@@ -472,10 +549,10 @@ model LeaveRequest {
   updatedAt DateTime @updatedAt
 }
 
-model CompanyHoliday {
-  id        String  @id @default(uuid(7)) @db.Uuid
-  companyId String  @db.Uuid
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+model OrganizationHoliday {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   date DateTime @db.Date
   name String
@@ -485,13 +562,13 @@ model CompanyHoliday {
 }
 
 // ==========================================
-// 9. Payroll
+// 10. Payroll
 // ==========================================
 
 model AllowanceType {
-  id        String  @id @default(uuid(7)) @db.Uuid
-  companyId String  @db.Uuid
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   name String
 
@@ -502,13 +579,13 @@ model AllowanceType {
 }
 
 model EmployeeAllowance {
-  id         String   @id @default(uuid(7)) @db.Uuid
-  companyId  String   @db.Uuid
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String   @db.Uuid
-  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employeeId String   @db.Uuid
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String       @db.Uuid
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId     String       @db.Uuid
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   allowanceTypeId String        @db.Uuid
   allowanceType   AllowanceType @relation(fields: [allowanceTypeId], references: [id], onDelete: Cascade)
@@ -520,13 +597,13 @@ model EmployeeAllowance {
 }
 
 model Advance {
-  id         String   @id @default(uuid(7)) @db.Uuid
-  companyId  String   @db.Uuid
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String   @db.Uuid
-  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employeeId String   @db.Uuid
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String       @db.Uuid
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId     String       @db.Uuid
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   totalAmount       Decimal  @db.Decimal(19, 4)
   installmentsCount Int
@@ -554,9 +631,9 @@ model AdvanceInstallment {
 }
 
 model PayrollRun {
-  id        String  @id @default(uuid(7)) @db.Uuid
-  companyId String  @db.Uuid
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   cycleDate        DateTime @db.Date
   status           String   @default("OPEN") // OPEN, CLOSED
@@ -570,15 +647,15 @@ model PayrollRun {
 }
 
 model PayrollItem {
-  id           String     @id @default(uuid(7)) @db.Uuid
-  payrollRunId String     @db.Uuid
-  payrollRun   PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
-  companyId    String     @db.Uuid
-  company      Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId     String     @db.Uuid
-  branch       Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employeeId   String     @db.Uuid
-  employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  payrollRunId   String       @db.Uuid
+  payrollRun     PayrollRun   @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String       @db.Uuid
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId     String       @db.Uuid
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   basicSalary Decimal @db.Decimal(19, 4)
   allowances  Decimal @db.Decimal(19, 4)
@@ -592,7 +669,7 @@ model PayrollItem {
 }
 
 // ==========================================
-// 10. Taxes
+// 11. Taxes
 // ==========================================
 model TaxRuleVersion {
   id            String    @id @default(uuid(7)) @db.Uuid
@@ -635,7 +712,7 @@ model TaxProfile {
 }
 
 // ==========================================
-// 11. KPI & Performance
+// 12. KPI & Performance
 // ==========================================
 
 model KPITemplate {
@@ -651,11 +728,11 @@ model KPITemplate {
 }
 
 model KPIGoal {
-  id        String  @id @default(uuid(7)) @db.Uuid
-  companyId String  @db.Uuid
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId  String? @db.Uuid
-  branch    Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?      @db.Uuid
+  branch         Branch?      @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   category        String
   name            String
@@ -707,13 +784,13 @@ model KPIResult {
 }
 
 model EmployeeIncident {
-  id         String   @id @default(uuid(7)) @db.Uuid
-  companyId  String   @db.Uuid
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String   @db.Uuid
-  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employeeId String   @db.Uuid
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String       @db.Uuid
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId     String       @db.Uuid
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   date        DateTime @db.Date
   description String
@@ -725,13 +802,13 @@ model EmployeeIncident {
 }
 
 model PerformanceReview {
-  id         String   @id @default(uuid(7)) @db.Uuid
-  companyId  String   @db.Uuid
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String   @db.Uuid
-  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employeeId String   @db.Uuid
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String       @db.Uuid
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employeeId     String       @db.Uuid
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   reviewPeriod String
   overallScore Decimal @db.Decimal(5, 2)
@@ -745,13 +822,13 @@ model PerformanceReview {
 }
 
 // ==========================================
-// 12. Notifications
+// 13. Notifications
 // ==========================================
 
 model NotificationThreshold {
-  id        String  @id @default(uuid(7)) @db.Uuid
-  companyId String  @db.Uuid
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   notificationType String
   thresholdValue   Int
@@ -759,15 +836,15 @@ model NotificationThreshold {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([companyId, notificationType])
+  @@unique([organizationId, notificationType])
 }
 
 model Notification {
-  id        String  @id @default(uuid(7)) @db.Uuid
-  companyId String  @db.Uuid
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId  String? @db.Uuid
-  branch    Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId       String?      @db.Uuid
+  branch         Branch?      @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   type     String
   source   String
