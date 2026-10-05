@@ -5,8 +5,8 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { PrismaModule } from './lib/database/prisma/prisma.module.js';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
-  controllers: [AppController],
-  providers: [AppService],
+	imports: [PrismaModule, AuthModule],
+	controllers: [AppController],
+	providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
